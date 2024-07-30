@@ -1,6 +1,6 @@
 # Bitwarden at Home
 
-This script is a simple password manager that allows users to securely store, retrieve, and manage their credentials. It uses AES encryption to protect the stored data and provides a console interface for interacting with the credentials.
+This console application is a simple password manager that allows users to securely store, retrieve, and manage their credentials. It uses AES encryption to protect the stored data and provides a console interface for interacting with the credentials.
 
 ## Table of Contents
 
