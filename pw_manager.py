@@ -19,17 +19,17 @@ from base64 import b64encode, b64decode
 try:
     import json
 except ModuleNotFoundError:
-    os.system('pip install json')
+    os.system('pip install json' if os.name == 'nt' else 'pip3 install json')
     input(f'{bcolors.waitingInput}Press enter to continue{bcolors.endc}')
 try:
     from tabulate import tabulate
 except ModuleNotFoundError:
-    os.system('pip install tabulate')
+    os.system('pip install tabulate' if os.name == 'nt' else 'pip3 install tabulate')
     input(f'{bcolors.waitingInput}Press enter to continue{bcolors.endc}')
 try:
     import hashlib
 except ModuleNotFoundError:
-    os.system('pip install hashlib')
+    os.system('pip install hashlib' if os.name == 'nt' else 'pip3 install hashlib')
     input(f'{bcolors.waitingInput}Press enter to continue{bcolors.endc}')
 try:
     from Crypto.Cipher import AES
@@ -37,13 +37,13 @@ try:
     from Crypto.Util.Padding import pad, unpad
     from Crypto.Util.RFC1751 import english_to_key, key_to_english
 except ModuleNotFoundError:
-    os.system('pip install pycryptodome')
+    os.system('pip install pycryptodome' if os.name == 'nt' else 'pip3 install pycryptodome')
     input(f'{bcolors.waitingInput}Press enter to continue{bcolors.endc}')
 
 os.system('cls' if os.name == 'nt' else 'clear')
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-credentials_file = 'credentials.i_just_discovered_i_can_give_whatever_file_extension_i_want' #can be opened with a text editor of your choice
+credentials_file = 'credentials.i_just_discovered_i_can_give_whatever_file_extension_i_want'  #can be opened with a text editor of your choice
 iv = b'0000000000000000'
 
 def sha256(text):
@@ -220,6 +220,7 @@ if __name__ == '__main__':
                 terminate = input('Are you sure you want to quit the program? (y/n) ')
                 if terminate == 'y':
                     run = False
+                    os.system('cls' if os.name == 'nt' else 'clear')
                 elif terminate == 'n':
                     delete_lines(2)
                 else:
