@@ -1,7 +1,20 @@
 import pw_manager as pw
 import os
+import hashlib
 from tkinter import *
 from tkinter import ttk
+
+try:
+    from Crypto.Cipher import AES
+    from Crypto import Random
+    from Crypto.Util.Padding import pad, unpad
+except ModuleNotFoundError:
+    os.system('pip install pycryptodome' if os.name == 'nt' else 'pip3 install pycryptodome')
+
+os.system('cls' if os.name == 'nt' else 'clear')
+
+def sha256(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 def copy_to_clipboard(text):
     root.clipboard_clear()
@@ -25,75 +38,156 @@ def on_mouse_wheel(event):
     elif event.num == 4 or event.delta > 0:
         canvas.yview_scroll(-1, "units")
 
-key = b'test\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c'
+# sign in window that appears when no credentials file is found
+def signin():
+    # sign in window layout
+    signin_window = Toplevel(root)
+    signin_window.title("Sign In")
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-credentials_file = 'credentials.i_just_discovered_i_can_give_whatever_file_extension_i_want'  #can be opened with a text editor of your choice
-# Load credentials from the JSON file using the imported function
-credentials = pw.load_credentials()
+    Label(signin_window, text="Choose a main password:").pack(pady=5)
+    main_pw_entry = Entry(signin_window, show="*", width=30)
+    main_pw_entry.pack(pady=5)
 
-credentials.pop(0)
+    Label(signin_window, text="Confirm your password:").pack(pady=5)
+    confirm_pw_entry = Entry(signin_window, show="*", width=30)
+    confirm_pw_entry.pack(pady=5)
 
-root = Tk()
-root.title('Bitwarden at home GUI')
+    error_label = Label(signin_window, text="", fg="red")
+    error_label.pack(pady=5)
 
-mainframe = ttk.Frame(root, padding='3 3 12 12')
-mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
+    def set_password(): # stores the hash of the main pw to the new credentials file
+        main_pw = main_pw_entry.get()
+        pw_confirm = confirm_pw_entry.get()
+        if main_pw == pw_confirm:
+            pw.save_credentials(None, 'Bitwarden at home', 'Bitwarden at home', sha256(main_pw))
+            signin_window.destroy()
+            login() # prompts the user to the login window right after signing in
+        else:
+            error_label.config(text="The two passwords must match.")
 
-# Configure the main grid
-root.grid_rowconfigure(2, weight=1)  # Allow row 2 (list) to expand
-root.grid_columnconfigure(0, weight=1)  # Allow column 0 (main content) to expand
+    Button(signin_window, text="Set Password", command=set_password).pack(pady=20)
+    signin_window.bind('<Return>', lambda event: set_password())
 
-# Credentials label
-credentials_label = Label(root, text="Credentials", font=("Helvetica", 14), anchor="w")
-credentials_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+# login window that appears when a credentials file is found
+def login():
+    login_window = Toplevel(root)
+    login_window.title("Login")
 
-# Frame for the credentials list and scrollbar
-list_frame = Frame(root)
-list_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+    Label(login_window, text="Insert your main password:").pack(pady=5)
+    pw_entry = Entry(login_window, show="*", width=30)
+    pw_entry.pack()
 
-# Add scrollbar to the list frame
-scrollbar = Scrollbar(list_frame, orient="vertical")
-scrollbar.pack(side="right", fill="y")
+    error_label = Label(login_window, text="", fg="red")
+    error_label.pack(pady=5)
 
-# Create a canvas to hold the credential items and attach it to the scrollbar
-canvas = Canvas(list_frame, yscrollcommand=scrollbar.set)
-canvas.pack(side="left", fill="both", expand=True)
-scrollbar.config(command=canvas.yview)
+    def verify_password(): # checks if the sha256 of the inserted password matches the one already stored
+        key = pw_entry.get()
+        pws = pw.load_credentials()
+        if sha256(key) == pws[0][3]:
+            global key_bytes
+            key_bytes = pad(key.encode('utf-8'), AES.block_size)
+            login_window.destroy()
+            load_main_application()
+        else:
+            error_label.config(text="Incorrect password. Please try again.")
 
-# Create a frame inside the canvas to hold the actual content
-content_frame = Frame(canvas)
-canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+    Button(login_window, text="Login", command=verify_password).pack(pady=20)
+    login_window.bind('<Return>', lambda event: verify_password())
 
-content_frame.bind("<Configure>", on_frame_configure)
+# loads the main application
+def load_main_application():
+    global canvas, canvas_window, content_frame, credentials, search_var
+    root.title('Bitwarden at home GUI')
 
-canvas.bind_all("<MouseWheel>", on_mouse_wheel)  # Windows and Linux scroll
-canvas.bind_all("<Button-4>", on_mouse_wheel)   # For MacOS, up scroll
-canvas.bind_all("<Button-5>", on_mouse_wheel)   # For MacOS, down scroll
+    mainframe = ttk.Frame(root, padding='3 3 12 12')
+    mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 
-# Add credential items to the content frame using data from the JSON file
-for item in credentials:
-    item[1] = pw.decrypt_data(key, item[1])
-    item[2] = pw.decrypt_data(key, item[2])
-    item[3] = pw.decrypt_data(key, item[3])
+    root.grid_rowconfigure(2, weight=1)
+    root.grid_columnconfigure(0, weight=1)
 
-    item_frame = Frame(content_frame, bd=1, relief="solid")
-    item_frame.pack(fill="x", padx=5, pady=2)
+    # Credentials label
+    credentials_label = Label(root, text="Credentials", font=("Helvetica", 14), anchor="w")
+    credentials_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
-    label1 = Label(item_frame, text=item[1], font=("Helvetica", 12), anchor="w")
-    label1.grid(row=0, column=0, padx=5, pady=0, sticky="w")
+    # Search bar and buttons frame
+    search_frame = Frame(root)
+    search_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
 
-    label2 = Label(item_frame, text=item[2], font=("Helvetica", 8), anchor="w")
-    label2.grid(row=1, column=0, padx=5, pady=2, sticky="w")
+    search_var = StringVar()
+    search_bar = Entry(search_frame, textvariable=search_var, width=25)
+    search_bar.pack(side=LEFT, fill=X, expand=True, padx=(0, 5))
 
-    button1 = Button(item_frame, text="@", command=lambda email=item[2]: click_email(email))
-    button1.grid(row=0, column=1, rowspan=2, padx=2, pady=2, sticky="e")
+    placeholder_button = Button(search_frame, text="+")
+    placeholder_button.pack(side=LEFT)
 
-    button2 = Button(item_frame, text="⚿", command=lambda pw=item[3]: click_pw(pw))
-    button2.grid(row=0, column=2, rowspan=2, padx=2, pady=2, sticky="e")
+    search_var.trace("w", lambda name, index, mode: update_credential_list())
 
-    # Configure columns to stretch
-    item_frame.grid_columnconfigure(0, weight=1)
+    list_frame = Frame(root)
+    list_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+
+    # adds a scrollbar that lets the user scroll through the credentials
+    scrollbar = Scrollbar(list_frame, orient="vertical")
+    scrollbar.pack(side="right", fill="y")
+
+    canvas = Canvas(list_frame, yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.config(command=canvas.yview)
+
+    content_frame = Frame(canvas)
+    canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+    content_frame.bind("<Configure>", on_frame_configure)
+
+    # binds the scroll-wheel and touchpad scroll gesture input to the scrolling action
+    canvas.bind_all("<MouseWheel>", on_mouse_wheel)
+    canvas.bind_all("<Button-4>", on_mouse_wheel)
+    canvas.bind_all("<Button-5>", on_mouse_wheel)
+
+    credentials = pw.load_credentials()
+    credentials.pop(0)
+
+    update_credential_list()
+
+# updates the list of shown credentials based on what's written in the search bar
+def update_credential_list():
+    global content_frame, credentials
+    search_text = search_var.get().lower()
+
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    for item in credentials:
+        name = pw.decrypt_data(key_bytes, item[1]).lower()
+        email = pw.decrypt_data(key_bytes, item[2]).lower()
+
+        if search_text in name or search_text in email:
+            item_frame = Frame(content_frame, bd=1, relief="solid")
+            item_frame.pack(fill="x", padx=5, pady=2)
+
+            label1 = Label(item_frame, text=name, font=("Helvetica", 12), anchor="w")
+            label1.grid(row=0, column=0, padx=5, pady=0, sticky="w")
+
+            label2 = Label(item_frame, text=email, font=("Helvetica", 8), anchor="w")
+            label2.grid(row=1, column=0, padx=5, pady=2, sticky="w")
+
+            button1 = Button(item_frame, text="@", command=lambda email=item[2]: click_email(pw.decrypt_data(key_bytes, email)))
+            button1.grid(row=0, column=1, rowspan=2, padx=2, pady=2, sticky="e")
+
+            button2 = Button(item_frame, text="⚿", command=lambda password=item[3]: click_pw(pw.decrypt_data(key_bytes, password)))
+            button2.grid(row=0, column=2, rowspan=2, padx=2, pady=2, sticky="e")
+
+            item_frame.grid_columnconfigure(0, weight=1)
 
 # Start the Tkinter event loop
-root.mainloop()
+if __name__ == '__main__':
+    root = Tk()
+    root.geometry('400x300')
+
+    credentials_file = 'credentials.i_just_discovered_i_can_give_whatever_file_extension_i_want'
+
+    if not os.path.exists(credentials_file):
+        signin()
+    else:
+        login()
+
+    root.mainloop()
