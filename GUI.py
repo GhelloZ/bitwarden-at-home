@@ -26,12 +26,12 @@ def click_email(email):
 def click_pw(pw):
     copy_to_clipboard(pw)
 
-# Function to update the scroll region of the canvas
+# function that updates the scroll region of the canvas
 def on_frame_configure(event):
     canvas.configure(scrollregion=canvas.bbox("all"))
     canvas.itemconfig(canvas_window, width=canvas.winfo_width())
 
-# Bind mouse scroll events to the canvas
+# binds mouse scroll events to the canvas
 def on_mouse_wheel(event):
     if event.num == 5 or event.delta < 0:
         canvas.yview_scroll(1, "units")
@@ -55,13 +55,13 @@ def signin():
     error_label = Label(signin_window, text="", fg="red")
     error_label.pack(pady=5)
 
-    def set_password(): # stores the hash of the main pw to the new credentials file
+    def set_password():  # stores the hash of the main pw to the new credentials file
         main_pw = main_pw_entry.get()
         pw_confirm = confirm_pw_entry.get()
         if main_pw == pw_confirm:
             pw.save_credentials(None, 'Bitwarden at home', 'Bitwarden at home', sha256(main_pw))
             signin_window.destroy()
-            login() # prompts the user to the login window right after signing in
+            login()  # prompts the user to the login window right after signing in
         else:
             error_label.config(text="The two passwords must match.")
 
@@ -80,7 +80,7 @@ def login():
     error_label = Label(login_window, text="", fg="red")
     error_label.pack(pady=5)
 
-    def verify_password(): # checks if the sha256 of the inserted password matches the one already stored
+    def verify_password():  # checks if the sha256 of the inserted password matches the one already stored
         key = pw_entry.get()
         pws = pw.load_credentials()
         if sha256(key) == pws[0][3]:
@@ -117,8 +117,8 @@ def load_main_application():
     search_bar = Entry(search_frame, textvariable=search_var, width=25)
     search_bar.pack(side=LEFT, fill=X, expand=True, padx=(0, 5))
 
-    placeholder_button = Button(search_frame, text="+")
-    placeholder_button.pack(side=LEFT)
+    add_button = Button(search_frame, text="+", command=add_new_credentials)
+    add_button.pack(side=LEFT)
 
     search_var.trace("w", lambda name, index, mode: update_credential_list())
 
@@ -178,7 +178,44 @@ def update_credential_list():
 
             item_frame.grid_columnconfigure(0, weight=1)
 
-# Start the Tkinter event loop
+# function to add new credentials
+def add_new_credentials():
+    new_window = Toplevel(root)
+    new_window.title("Add New Credentials")
+
+    Label(new_window, text="Service Name:").pack(pady=5)
+    service_name_entry = Entry(new_window, width=30)
+    service_name_entry.pack(pady=5)
+
+    Label(new_window, text="Username:").pack(pady=5)
+    username_entry = Entry(new_window, width=30)
+    username_entry.pack(pady=5)
+
+    Label(new_window, text="Password:").pack(pady=5)
+    password_entry = Entry(new_window, show="*", width=30)
+    password_entry.pack(pady=5)
+
+    def save_credentials():
+        name = service_name_entry.get()
+        username = username_entry.get()
+        password = password_entry.get()
+
+        if name and username and password:
+            pw.save_credentials(key_bytes, name, username, password)
+            new_window.destroy()
+            credentials.append([len(credentials), pw.encrypt_data(key_bytes, name), pw.encrypt_data(key_bytes, username), pw.encrypt_data(key_bytes, password)])
+            update_credential_list()
+
+    button_frame = Frame(new_window)
+    button_frame.pack(pady=10)
+
+    cancel_button = Button(button_frame, text="Cancel", command=new_window.destroy)
+    cancel_button.pack(side=LEFT, padx=5)
+
+    save_button = Button(button_frame, text="Save", command=save_credentials)
+    save_button.pack(side=RIGHT, padx=5)
+
+# starts the Tkinter event loop
 if __name__ == '__main__':
     root = Tk()
     root.geometry('400x300')
